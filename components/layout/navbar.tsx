@@ -8,6 +8,7 @@ import {
 	LayoutDashboard,
 	ClipboardList,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -30,7 +31,7 @@ export function Navbar() {
 				<div className="flex justify-between items-center h-16">
 					<div className="flex items-center space-x-8">
 						<Link href="/dashboard">
-							<h1 className="text-xl font-bold text-gray-900">Laundra</h1>
+							<Image src="/logo.png" alt="Laundra" width={200} height={100} />
 						</Link>
 						<div className="hidden md:flex items-center space-x-4">
 							<Link href="/dashboard">
