@@ -6,6 +6,32 @@ alter table if exists products enable row level security;
 alter table if exists stain_types enable row level security;
 alter table if exists store_settings enable row level security;
 alter table if exists customers enable row level security;
+alter table if exists orders enable row level security;
+alter table if exists order_items enable row level security;
+
+-- Drop existing policies if any exist
+drop policy if exists "Allow authenticated access" on categories;
+drop policy if exists "Allow authenticated access" on products;
+drop policy if exists "Allow authenticated access" on stain_types;
+drop policy if exists "Allow authenticated access" on store_settings;
+drop policy if exists "Allow authenticated access" on customers;
+drop policy if exists "Allow authenticated access" on orders;
+drop policy if exists "Allow authenticated access" on order_items;
+
+-- Create new RLS policies for all tables
+create policy "Allow authenticated access" on categories for all using (auth.role() = 'authenticated');
+
+create policy "Allow authenticated access" on products for all using (auth.role() = 'authenticated');
+
+create policy "Allow authenticated access" on stain_types for all using (auth.role() = 'authenticated');
+
+create policy "Allow authenticated access" on store_settings for all using (auth.role() = 'authenticated');
+
+create policy "Allow authenticated access" on customers for all using (auth.role() = 'authenticated');
+
+create policy "Allow authenticated access" on orders for all using (auth.role() = 'authenticated');
+
+create policy "Allow authenticated access" on order_items for all using (auth.role() = 'authenticated');
 
 -- Create tables
 create table if not exists customers (

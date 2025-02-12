@@ -33,7 +33,7 @@ export interface StoreSettings {
 	name: string;
 	phone: string;
 	address_line1: string;
-	address_line2?: string;
+	address_line2: string | null;
 	address_city: string;
 	address_postcode: string;
 	vat_number: string;

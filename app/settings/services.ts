@@ -4,7 +4,6 @@ import type {
 	NewCategory,
 	NewProduct,
 	NewStainType,
-	NewStoreSettings,
 	Product,
 	StainType,
 	StoreSettings,
@@ -146,51 +145,30 @@ export async function deleteStainType(id: string) {
 
 // Store Settings
 export async function getStoreSettings() {
-	const { data: user } = await supabase.auth.getUser();
-	if (!user.user?.id) return null;
-
 	const { data, error } = await supabase
 		.from('store_settings')
 		.select('*')
-		.eq('user_id', user.user.id)
 		.single();
 
-	if (error) {
-		if (error.code === 'PGRST116') return null; // No data found
-		throw error;
-	}
-
-	return data ? (parseDates(data) as StoreSettings) : null;
+	if (error) throw error;
+	return parseDates(data);
 }
 
-export async function upsertStoreSettings(settings: NewStoreSettings) {
+export async function upsertStoreSettings(
+	settings: Omit<StoreSettings, 'id' | 'created_at' | 'updated_at' | 'user_id'>
+) {
 	const { data: user } = await supabase.auth.getUser();
 	if (!user.user?.id) throw new Error('User not authenticated');
 
-	const { data: existingSettings } = await supabase
+	const { data, error } = await supabase
 		.from('store_settings')
-		.select('id')
-		.eq('user_id', user.user.id)
+		.upsert({
+			...settings,
+			user_id: user.user.id,
+		})
+		.select()
 		.single();
 
-	if (existingSettings) {
-		const { data, error } = await supabase
-			.from('store_settings')
-			.update(settings)
-			.eq('id', existingSettings.id)
-			.select()
-			.single();
-
-		if (error) throw error;
-		return parseDates(data) as StoreSettings;
-	} else {
-		const { data, error } = await supabase
-			.from('store_settings')
-			.insert([{ ...settings, user_id: user.user.id }])
-			.select()
-			.single();
-
-		if (error) throw error;
-		return parseDates(data) as StoreSettings;
-	}
+	if (error) throw error;
+	return parseDates(data);
 }

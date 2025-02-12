@@ -19,9 +19,9 @@ import {
 } from '@/components/ui/table';
 import { Printer, Trash, Edit } from 'lucide-react';
 import { Order } from '../types';
-import type { Product, StainType } from '@/app/settings/types';
-import { useStoreSettings } from '@/contexts/store-settings';
-import { useState } from 'react';
+import type { Product, StainType, StoreSettings } from '@/app/settings/types';
+import { useState, useEffect } from 'react';
+import { getStoreSettings } from '@/app/settings/services';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -53,8 +53,23 @@ export function OrderDetails({
 	onDelete,
 	onEdit,
 }: OrderDetailsProps) {
-	const { settings: storeSettings } = useStoreSettings();
+	const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(
+		null
+	);
 	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+	useEffect(() => {
+		const loadStoreSettings = async () => {
+			try {
+				const settings = await getStoreSettings();
+				setStoreSettings(settings);
+			} catch (error) {
+				console.error('Error loading store settings:', error);
+			}
+		};
+
+		loadStoreSettings();
+	}, []);
 
 	const handleDelete = () => {
 		if (order) {
@@ -70,7 +85,7 @@ export function OrderDetails({
 		}
 	};
 
-	if (!order) return null;
+	if (!order || !storeSettings) return null;
 
 	const handlePrint = () => {
 		// Create a new window
@@ -87,7 +102,7 @@ export function OrderDetails({
 					sum + (item.base_price + item.stain_charge) * item.quantity,
 				0
 			) || 0;
-		const vat = (subtotal * storeSettings.vatRate) / 100;
+		const vat = (subtotal * storeSettings.vat_rate) / 100;
 		const total = subtotal + vat + (order.is_express ? order.express_fee : 0);
 
 		// Write the receipt content
@@ -153,11 +168,11 @@ export function OrderDetails({
 					<div class="receipt">
 						<div class="header">
 							<h2>${storeSettings.name}</h2>
-							<p>${storeSettings.address.line1}</p>
-							${storeSettings.address.line2 ? `<p>${storeSettings.address.line2}</p>` : ''}
-							<p>${storeSettings.address.city}, ${storeSettings.address.postcode}</p>
+							<p>${storeSettings.address_line1}</p>
+							${storeSettings.address_line2 ? `<p>${storeSettings.address_line2}</p>` : ''}
+							<p>${storeSettings.address_city}, ${storeSettings.address_postcode}</p>
 							<p>Tel: ${storeSettings.phone}</p>
-							<p>VAT: ${storeSettings.vatNumber}</p>
+							<p>VAT: ${storeSettings.vat_number}</p>
 						</div>
 						
 						<div class="divider"></div>
@@ -210,7 +225,7 @@ export function OrderDetails({
 								: ''
 						}
 						<div class="item-row">
-							<span>VAT (${storeSettings.vatRate}%):</span>
+							<span>VAT (${storeSettings.vat_rate}%):</span>
 							<span>£${vat.toFixed(2)}</span>
 						</div>
 						<div class="total-row">
@@ -298,9 +313,21 @@ export function OrderDetails({
 									{order.customer?.name}
 								</div>
 								<div>
-									<span className="font-medium">Customer ID:</span>{' '}
-									{order.customer_id}
+									<span className="font-medium">Phone:</span>{' '}
+									{order.customer?.phone}
 								</div>
+								{order.customer?.email && (
+									<div>
+										<span className="font-medium">Email:</span>{' '}
+										{order.customer.email}
+									</div>
+								)}
+								{order.customer?.address && (
+									<div>
+										<span className="font-medium">Address:</span>{' '}
+										{order.customer.address}
+									</div>
+								)}
 							</div>
 						</div>
 
@@ -402,11 +429,11 @@ export function OrderDetails({
 									</div>
 								)}
 								<div className="flex justify-between text-gray-600">
-									<span>VAT ({storeSettings.vatRate}%)</span>
+									<span>VAT ({storeSettings.vat_rate}%)</span>
 									<span>
 										£
 										{(
-											(order.total_amount * storeSettings.vatRate) /
+											(order.total_amount * storeSettings.vat_rate) /
 											100
 										).toFixed(2)}
 									</span>
