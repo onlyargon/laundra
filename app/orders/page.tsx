@@ -4,12 +4,25 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Plus, Search } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Search, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { CreateOrder } from './components/create-order';
 import { OrderDetails } from './components/order-details';
+import { EditOrder } from './components/edit-order';
 import { OrderList } from './components/order-list';
-import { Order, OrderStatus } from './types';
+import { Order, OrderStatus, NewOrder, NewOrderItem } from './types';
+import { useToast } from '@/hooks/use-toast';
+import {
+	getOrders,
+	createOrder,
+	updateOrderStatus,
+	updateOrder,
+	deleteOrder,
+} from './services';
+import { getCustomers } from '../customers/services';
+import { getProducts, getStainTypes } from '../settings/services';
+import type { Customer } from '../customers/types';
+import type { Product, StainType } from '../settings/types';
 
 const statusOrder: OrderStatus[] = [
 	'new',
@@ -20,68 +33,12 @@ const statusOrder: OrderStatus[] = [
 ];
 
 export default function Orders() {
-	// Sample data
-	const [customers] = useState([
-		{
-			id: '1',
-			name: 'John Doe',
-			email: 'john@example.com',
-			phone: '+1234567890',
-			address: '123 Main St',
-		},
-	]);
-
-	const [products] = useState([
-		{
-			id: '1',
-			name: 'Wash & Fold',
-			category: '1',
-			price: 15.0,
-		},
-		{
-			id: '2',
-			name: 'Dry Clean Shirt',
-			category: '2',
-			price: 8.0,
-		},
-	]);
-
-	const [stainTypes] = useState([
-		{
-			id: '1',
-			name: 'Oil',
-			additionalCharge: 5.0,
-		},
-		{
-			id: '2',
-			name: 'Wine',
-			additionalCharge: 7.5,
-		},
-	]);
-
-	// Orders state
-	const [orders, setOrders] = useState<Order[]>([
-		{
-			id: '1',
-			customerId: '1',
-			customerName: 'John Doe',
-			status: 'new',
-			items: [
-				{
-					id: '1',
-					productId: '1',
-					quantity: 2,
-					basePrice: 15.0,
-					stainCharge: 0,
-				},
-			],
-			isExpress: false,
-			expressFee: 0,
-			totalAmount: 30.0,
-			createdAt: new Date(),
-			updatedAt: new Date(),
-		},
-	]);
+	const { toast } = useToast();
+	const [isLoading, setIsLoading] = useState(true);
+	const [orders, setOrders] = useState<Order[]>([]);
+	const [customers, setCustomers] = useState<Customer[]>([]);
+	const [products, setProducts] = useState<Product[]>([]);
+	const [stainTypes, setStainTypes] = useState<StainType[]>([]);
 
 	// UI state
 	const [selectedStatus, setSelectedStatus] = useState<OrderStatus>('new');
@@ -89,28 +46,69 @@ export default function Orders() {
 	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 	const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 	const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+	// Load data
+	useEffect(() => {
+		const loadData = async () => {
+			try {
+				const [ordersData, customersData, productsData, stainTypesData] =
+					await Promise.all([
+						getOrders(),
+						getCustomers(),
+						getProducts(),
+						getStainTypes(),
+					]);
+
+				setOrders(ordersData);
+				setCustomers(customersData);
+				setProducts(productsData);
+				setStainTypes(stainTypesData);
+			} catch (error) {
+				console.error('Error loading data:', error);
+				toast({
+					variant: 'destructive',
+					title: 'Error',
+					description: 'Failed to load orders data. Please try again.',
+				});
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		loadData();
+	}, [toast]);
 
 	// Filter orders based on status and search query
 	const filteredOrders = orders.filter(
 		(order) =>
 			order.status === selectedStatus &&
-			(order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			(order.customer?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 				order.id.includes(searchQuery))
 	);
 
 	// Status management
-	const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
-		setOrders(
-			orders.map((order) =>
-				order.id === orderId
-					? {
-							...order,
-							status: newStatus,
-							updatedAt: new Date(),
-					  }
-					: order
-			)
-		);
+	const handleStatusChange = async (
+		orderId: string,
+		newStatus: OrderStatus
+	) => {
+		try {
+			const updatedOrder = await updateOrderStatus(orderId, newStatus);
+			setOrders(
+				orders.map((order) => (order.id === orderId ? updatedOrder : order))
+			);
+			toast({
+				title: 'Success',
+				description: 'Order status updated successfully.',
+			});
+		} catch (error) {
+			console.error('Error updating order status:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to update order status. Please try again.',
+			});
+		}
 	};
 
 	const canMoveToStatus = (
@@ -126,28 +124,130 @@ export default function Orders() {
 	const handleViewOrder = (order: Order) => {
 		setSelectedOrder(order);
 		setIsViewDialogOpen(true);
+		setIsEditDialogOpen(false);
+	};
+
+	const generateOrderNumber = () => {
+		const now = new Date();
+		const yearPart = now.getFullYear().toString().slice(-2);
+		const monthPart = String(now.getMonth() + 1).padStart(2, '0');
+		const dayPart = String(now.getDate()).padStart(2, '0');
+		const baseNumberString = `${yearPart}${monthPart}${dayPart}`;
+		const todayOrdersCount = orders.filter((order) => {
+			const orderDate = new Date(order.created_at);
+			return (
+				orderDate.getFullYear() === now.getFullYear() &&
+				orderDate.getMonth() === now.getMonth() &&
+				orderDate.getDate() === now.getDate()
+			);
+		}).length;
+		const sequentialNumber = String(todayOrdersCount + 1).padStart(3, '0');
+		return parseInt(`${baseNumberString}${sequentialNumber}`, 10);
 	};
 
 	// Create new order
-	const handleCreateOrder = (orderData: {
-		customerId: string;
-		customerName: string;
-		items: Order['items'];
-		isExpress: boolean;
-		expressFee: number;
-		totalAmount: number;
+	const handleCreateOrder = async (orderData: {
+		customer_id: string;
+		items: NewOrderItem[];
+		is_express: boolean;
+		express_fee: number;
+		total_amount: number;
 	}) => {
-		const newOrder: Order = {
-			id: Date.now().toString(),
-			...orderData,
-			status: 'new',
-			createdAt: new Date(),
-			updatedAt: new Date(),
-		};
+		try {
+			const newOrder: NewOrder = {
+				...orderData,
+				status: 'new',
+				order_number: generateOrderNumber(),
+			};
 
-		setOrders([...orders, newOrder]);
-		setIsCreateDialogOpen(false);
+			const createdOrder = await createOrder(newOrder, orderData.items);
+			setOrders([createdOrder, ...orders]);
+			setIsCreateDialogOpen(false);
+			toast({
+				title: 'Success',
+				description: 'Order created successfully.',
+			});
+		} catch (error) {
+			console.error('Error creating order:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to create order. Please try again.',
+			});
+		}
 	};
+
+	// Handle edit order
+	const handleEditOrder = (order: Order) => {
+		setSelectedOrder(order);
+		setIsEditDialogOpen(true);
+	};
+
+	// Handle save edited order
+	const handleSaveOrder = async (
+		orderId: string,
+		data: {
+			customer_id: string;
+			items: NewOrderItem[];
+			is_express: boolean;
+			express_fee: number;
+			total_amount: number;
+		}
+	) => {
+		try {
+			const updatedOrder = await updateOrder(orderId, data, data.items);
+			setOrders(
+				orders.map((order) => (order.id === orderId ? updatedOrder : order))
+			);
+			setIsEditDialogOpen(false);
+			setSelectedOrder(updatedOrder);
+			toast({
+				title: 'Success',
+				description: 'Order updated successfully.',
+			});
+		} catch (error) {
+			console.error('Error updating order:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to update order. Please try again.',
+			});
+		}
+	};
+
+	// Handle delete order
+	const handleDeleteOrder = async (orderId: string) => {
+		try {
+			await deleteOrder(orderId);
+			setOrders(orders.filter((order) => order.id !== orderId));
+			toast({
+				title: 'Success',
+				description: 'Order deleted successfully.',
+			});
+		} catch (error) {
+			console.error('Error deleting order:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to delete order. Please try again.',
+			});
+		}
+	};
+
+	// Handle new customer creation
+	const handleCustomerCreated = (newCustomer: Customer) => {
+		setCustomers((prevCustomers) => [...prevCustomers, newCustomer]);
+	};
+
+	if (isLoading) {
+		return (
+			<AppLayout>
+				<div className="flex items-center justify-center min-h-[60vh]">
+					<Loader2 className="h-8 w-8 animate-spin text-primary" />
+				</div>
+			</AppLayout>
+		);
+	}
 
 	return (
 		<AppLayout>
@@ -200,6 +300,7 @@ export default function Orders() {
 				isOpen={isCreateDialogOpen}
 				onClose={() => setIsCreateDialogOpen(false)}
 				onCreateOrder={handleCreateOrder}
+				onCustomerCreated={handleCustomerCreated}
 				customers={customers}
 				products={products}
 				stainTypes={stainTypes}
@@ -209,12 +310,33 @@ export default function Orders() {
 				order={selectedOrder}
 				products={products}
 				stainTypes={stainTypes}
-				isOpen={isViewDialogOpen}
+				isOpen={isViewDialogOpen && !isEditDialogOpen}
 				onClose={() => {
 					setIsViewDialogOpen(false);
-					setSelectedOrder(null);
+					if (!isEditDialogOpen) {
+						setSelectedOrder(null);
+					}
 				}}
+				onDelete={handleDeleteOrder}
+				onEdit={handleEditOrder}
 			/>
+
+			{selectedOrder && (
+				<EditOrder
+					order={selectedOrder}
+					isOpen={isEditDialogOpen}
+					onClose={() => {
+						setIsEditDialogOpen(false);
+						if (!isViewDialogOpen) {
+							setSelectedOrder(null);
+						}
+					}}
+					onSave={handleSaveOrder}
+					customers={customers}
+					products={products}
+					stainTypes={stainTypes}
+				/>
+			)}
 		</AppLayout>
 	);
 }

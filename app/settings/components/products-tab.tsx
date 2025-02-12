@@ -39,7 +39,7 @@ export function ProductsTab({
 }: ProductsTabProps) {
 	const [newProduct, setNewProduct] = useState({
 		name: '',
-		category: '',
+		category_id: '',
 		price: 0,
 		description: '',
 	});
@@ -49,24 +49,34 @@ export function ProductsTab({
 		setEditingProduct(product);
 		setNewProduct({
 			name: product.name,
-			category: product.category,
+			category_id: product.category_id,
 			price: product.price,
 			description: product.description || '',
 		});
 	};
 
 	const handleUpdateProduct = () => {
-		if (editingProduct && newProduct.name && newProduct.category) {
-			onUpdate(editingProduct.id, newProduct);
+		if (editingProduct && newProduct.name && newProduct.category_id) {
+			onUpdate(editingProduct.id, {
+				...newProduct,
+				created_at: editingProduct.created_at,
+				updated_at: editingProduct.updated_at,
+				user_id: editingProduct.user_id,
+			});
 			setEditingProduct(null);
-			setNewProduct({ name: '', category: '', price: 0, description: '' });
+			setNewProduct({ name: '', category_id: '', price: 0, description: '' });
 		}
 	};
 
 	const handleSaveProduct = () => {
-		if (newProduct.name && newProduct.category) {
-			onAdd(newProduct);
-			setNewProduct({ name: '', category: '', price: 0, description: '' });
+		if (newProduct.name && newProduct.category_id) {
+			onAdd({
+				...newProduct,
+				created_at: new Date(),
+				updated_at: new Date(),
+				user_id: '1',
+			});
+			setNewProduct({ name: '', category_id: '', price: 0, description: '' });
 		}
 	};
 
@@ -94,9 +104,9 @@ export function ProductsTab({
 							}
 						/>
 						<Select
-							value={newProduct.category}
+							value={newProduct.category_id}
 							onValueChange={(value) =>
-								setNewProduct({ ...newProduct, category: value })
+								setNewProduct({ ...newProduct, category_id: value })
 							}
 						>
 							<SelectTrigger className="w-full">
@@ -135,7 +145,7 @@ export function ProductsTab({
 									setEditingProduct(null);
 									setNewProduct({
 										name: '',
-										category: '',
+										category_id: '',
 										price: 0,
 										description: '',
 									});
@@ -161,7 +171,7 @@ export function ProductsTab({
 								<TableRow key={product.id}>
 									<TableCell>{product.name}</TableCell>
 									<TableCell>
-										{categories.find((c) => c.id === product.category)?.name}
+										{categories.find((c) => c.id === product.category_id)?.name}
 									</TableCell>
 									<TableCell>£{product.price.toFixed(2)}</TableCell>
 									<TableCell>

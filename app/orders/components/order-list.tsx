@@ -10,7 +10,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Eye } from 'lucide-react';
 import { Order, OrderStatus } from '@/app/orders/types';
 
 interface OrderListProps {
@@ -45,7 +45,7 @@ export function OrderList({
 				<Table>
 					<TableHeader>
 						<TableRow>
-							<TableHead>Order ID</TableHead>
+							<TableHead>Order #</TableHead>
 							<TableHead>Customer</TableHead>
 							<TableHead>Items</TableHead>
 							<TableHead>Total Amount</TableHead>
@@ -56,11 +56,11 @@ export function OrderList({
 					<TableBody>
 						{orders.map((order) => (
 							<TableRow key={order.id}>
-								<TableCell>{order.id}</TableCell>
-								<TableCell>{order.customerName}</TableCell>
-								<TableCell>{order.items.length} items</TableCell>
-								<TableCell>${order.totalAmount.toFixed(2)}</TableCell>
-								<TableCell>{order.createdAt.toLocaleDateString()}</TableCell>
+								<TableCell>#{order.order_number}</TableCell>
+								<TableCell>{order.customer?.name}</TableCell>
+								<TableCell>{order.items?.length || 0} items</TableCell>
+								<TableCell>£{order.total_amount.toFixed(2)}</TableCell>
+								<TableCell>{order.created_at.toLocaleDateString()}</TableCell>
 								<TableCell>
 									<div className="flex space-x-2">
 										<Button
@@ -68,19 +68,7 @@ export function OrderList({
 											size="icon"
 											onClick={() => onViewOrder(order)}
 										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												strokeWidth="2"
-												strokeLinecap="round"
-												strokeLinejoin="round"
-												className="h-4 w-4"
-											>
-												<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-												<circle cx="12" cy="12" r="3" />
-											</svg>
+											<Eye className="h-4 w-4" />
 										</Button>
 										{canMoveToStatus(
 											order.status,

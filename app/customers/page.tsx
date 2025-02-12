@@ -22,33 +22,24 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, X, Search } from 'lucide-react';
-import { useState } from 'react';
-
-type Customer = {
-	id: string;
-	name: string;
-	email: string;
-	phone: string;
-	address: string;
-	createdAt: Date;
-};
+import { Plus, Pencil, Trash2, X, Search, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import type { Customer, NewCustomer } from './types';
+import {
+	getCustomers,
+	createCustomer,
+	updateCustomer,
+	deleteCustomer,
+} from './services';
 
 export default function Customers() {
-	// Sample initial data
-	const [customers, setCustomers] = useState<Customer[]>([
-		{
-			id: '1',
-			name: 'John Doe',
-			email: 'john@example.com',
-			phone: '+1234567890',
-			address: '123 Main St, City',
-			createdAt: new Date('2024-01-01'),
-		},
-	]);
+	const { toast } = useToast();
+	const [isLoading, setIsLoading] = useState(true);
+	const [customers, setCustomers] = useState<Customer[]>([]);
 
 	// State for new/editing customer
-	const [newCustomer, setNewCustomer] = useState({
+	const [newCustomer, setNewCustomer] = useState<NewCustomer>({
 		name: '',
 		email: '',
 		phone: '',
@@ -59,34 +50,74 @@ export default function Customers() {
 	const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 	const [searchQuery, setSearchQuery] = useState('');
 
-	const handleSaveCustomer = () => {
+	// Load customers
+	useEffect(() => {
+		const loadCustomers = async () => {
+			try {
+				const data = await getCustomers();
+				setCustomers(data);
+			} catch (error) {
+				console.error('Error loading customers:', error);
+				toast({
+					variant: 'destructive',
+					title: 'Error',
+					description: 'Failed to load customers. Please try again.',
+				});
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		loadCustomers();
+	}, [toast]);
+
+	const handleSaveCustomer = async () => {
 		if (newCustomer.name && newCustomer.phone) {
-			setCustomers([
-				...customers,
-				{
-					id: Date.now().toString(),
-					...newCustomer,
-					createdAt: new Date(),
-				},
-			]);
-			setNewCustomer({ name: '', email: '', phone: '', address: '' });
+			try {
+				const savedCustomer = await createCustomer(newCustomer);
+				setCustomers([...customers, savedCustomer]);
+				setNewCustomer({ name: '', email: '', phone: '', address: '' });
+				toast({
+					title: 'Success',
+					description: 'Customer added successfully.',
+				});
+			} catch (error) {
+				console.error('Error adding customer:', error);
+				toast({
+					variant: 'destructive',
+					title: 'Error',
+					description: 'Failed to add customer. Please try again.',
+				});
+			}
 		}
 	};
 
-	const handleUpdateCustomer = () => {
+	const handleUpdateCustomer = async () => {
 		if (editingCustomer && newCustomer.name && newCustomer.phone) {
-			setCustomers(
-				customers.map((customer) =>
-					customer.id === editingCustomer.id
-						? {
-								...customer,
-								...newCustomer,
-						  }
-						: customer
-				)
-			);
-			setEditingCustomer(null);
-			setNewCustomer({ name: '', email: '', phone: '', address: '' });
+			try {
+				const updatedCustomer = await updateCustomer(
+					editingCustomer.id,
+					newCustomer
+				);
+				setCustomers(
+					customers.map((customer) =>
+						customer.id === editingCustomer.id ? updatedCustomer : customer
+					)
+				);
+				setEditingCustomer(null);
+				setNewCustomer({ name: '', email: '', phone: '', address: '' });
+				toast({
+					title: 'Success',
+					description: 'Customer updated successfully.',
+				});
+			} catch (error) {
+				console.error('Error updating customer:', error);
+				toast({
+					variant: 'destructive',
+					title: 'Error',
+					description: 'Failed to update customer. Please try again.',
+				});
+			}
 		}
 	};
 
@@ -100,9 +131,23 @@ export default function Customers() {
 		});
 	};
 
-	const handleDeleteCustomer = (id: string) => {
-		setCustomers(customers.filter((customer) => customer.id !== id));
-		setDeleteConfirm(null);
+	const handleDeleteCustomer = async (id: string) => {
+		try {
+			await deleteCustomer(id);
+			setCustomers(customers.filter((customer) => customer.id !== id));
+			setDeleteConfirm(null);
+			toast({
+				title: 'Success',
+				description: 'Customer deleted successfully.',
+			});
+		} catch (error) {
+			console.error('Error deleting customer:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to delete customer. Please try again.',
+			});
+		}
 	};
 
 	const filteredCustomers = customers.filter(
@@ -111,6 +156,16 @@ export default function Customers() {
 			customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			customer.phone.includes(searchQuery)
 	);
+
+	if (isLoading) {
+		return (
+			<AppLayout>
+				<div className="flex items-center justify-center min-h-[60vh]">
+					<Loader2 className="h-8 w-8 animate-spin text-primary" />
+				</div>
+			</AppLayout>
+		);
+	}
 
 	return (
 		<AppLayout>
@@ -226,7 +281,7 @@ export default function Customers() {
 										<TableCell>{customer.phone}</TableCell>
 										<TableCell>{customer.address}</TableCell>
 										<TableCell>
-											{customer.createdAt.toLocaleDateString()}
+											{customer.created_at.toLocaleDateString()}
 										</TableCell>
 										<TableCell>
 											<div className="flex space-x-2">

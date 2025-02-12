@@ -2,125 +2,271 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useState } from 'react';
+import { StoreSettingsTab } from './components/store-settings-tab';
 import { CategoriesTab } from './components/categories-tab';
 import { ProductsTab } from './components/products-tab';
 import { StainsTab } from './components/stains-tab';
-import { StoreSettingsTab } from './components/store-settings-tab';
+import { useToast } from '@/hooks/use-toast';
+import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import type { Category, Product, StainType, StoreSettings } from './types';
+import {
+	getCategories,
+	getProducts,
+	getStainTypes,
+	getStoreSettings,
+	createCategory,
+	updateCategory,
+	deleteCategory,
+	createProduct,
+	updateProduct,
+	deleteProduct,
+	createStainType,
+	updateStainType,
+	deleteStainType,
+	upsertStoreSettings,
+} from './services';
 
 export default function SettingsPage() {
-	const [categories, setCategories] = useState<Category[]>([
-		{
-			id: '1',
-			name: 'Shirts',
-			description: 'All types of shirts',
-		},
-		{
-			id: '2',
-			name: 'Pants',
-			description: 'All types of pants',
-		},
-	]);
+	const { toast } = useToast();
+	const [isLoading, setIsLoading] = useState(true);
+	const [categories, setCategories] = useState<Category[]>([]);
+	const [products, setProducts] = useState<Product[]>([]);
+	const [stains, setStains] = useState<StainType[]>([]);
+	const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(
+		null
+	);
 
-	const [products, setProducts] = useState<Product[]>([
-		{
-			id: '1',
-			name: 'Regular Shirt',
-			category: '1',
-			price: 2.5,
-			description: 'Regular shirt cleaning',
-		},
-		{
-			id: '2',
-			name: 'Dress Shirt',
-			category: '1',
-			price: 3.5,
-			description: 'Dress shirt cleaning',
-		},
-	]);
+	useEffect(() => {
+		const loadData = async () => {
+			try {
+				const [categoriesData, productsData, stainsData, settingsData] =
+					await Promise.all([
+						getCategories(),
+						getProducts(),
+						getStainTypes(),
+						getStoreSettings(),
+					]);
 
-	const [stains, setStains] = useState<StainType[]>([
-		{
-			id: '1',
-			name: 'Oil',
-			description: 'Oil stains',
-			price: 1.5,
-		},
-		{
-			id: '2',
-			name: 'Wine',
-			description: 'Wine stains',
-			price: 2.0,
-		},
-	]);
-
-	const [storeSettings, setStoreSettings] = useState<StoreSettings>({
-		name: 'Laundra',
-		phone: '020 1234 5678',
-		address: {
-			line1: '123 High Street',
-			line2: 'Suite 4',
-			city: 'London',
-			postcode: 'SW1A 1AA',
-		},
-		vatNumber: 'GB123456789',
-		vatRate: 20,
-	});
-
-	const handleAddCategory = (category: Omit<Category, 'id'>) => {
-		const newCategory = {
-			...category,
-			id: Math.random().toString(36).substr(2, 9),
+				setCategories(categoriesData);
+				setProducts(productsData);
+				setStains(stainsData);
+				setStoreSettings(settingsData);
+			} catch (error) {
+				console.error('Error loading settings data:', error);
+				toast({
+					variant: 'destructive',
+					title: 'Error',
+					description: 'Failed to load settings. Please try again.',
+				});
+			} finally {
+				setIsLoading(false);
+			}
 		};
-		setCategories([...categories, newCategory]);
+
+		loadData();
+	}, [toast]);
+
+	const handleAddCategory = async (category: Omit<Category, 'id'>) => {
+		try {
+			const newCategory = await createCategory(category);
+			setCategories([...categories, newCategory]);
+			toast({
+				title: 'Success',
+				description: 'Category added successfully.',
+			});
+		} catch (error) {
+			console.error('Error adding category:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to add category. Please try again.',
+			});
+		}
 	};
 
-	const handleUpdateCategory = (id: string, category: Omit<Category, 'id'>) => {
-		setCategories(
-			categories.map((c) => (c.id === id ? { ...c, ...category } : c))
+	const handleUpdateCategory = async (
+		id: string,
+		category: Omit<Category, 'id'>
+	) => {
+		try {
+			const updatedCategory = await updateCategory(id, category);
+			setCategories(categories.map((c) => (c.id === id ? updatedCategory : c)));
+			toast({
+				title: 'Success',
+				description: 'Category updated successfully.',
+			});
+		} catch (error) {
+			console.error('Error updating category:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to update category. Please try again.',
+			});
+		}
+	};
+
+	const handleDeleteCategory = async (id: string) => {
+		try {
+			await deleteCategory(id);
+			setCategories(categories.filter((c) => c.id !== id));
+			toast({
+				title: 'Success',
+				description: 'Category deleted successfully.',
+			});
+		} catch (error) {
+			console.error('Error deleting category:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to delete category. Please try again.',
+			});
+		}
+	};
+
+	const handleAddProduct = async (product: Omit<Product, 'id'>) => {
+		try {
+			const newProduct = await createProduct(product);
+			setProducts([...products, newProduct]);
+			toast({
+				title: 'Success',
+				description: 'Product added successfully.',
+			});
+		} catch (error) {
+			console.error('Error adding product:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to add product. Please try again.',
+			});
+		}
+	};
+
+	const handleUpdateProduct = async (
+		id: string,
+		product: Omit<Product, 'id'>
+	) => {
+		try {
+			const updatedProduct = await updateProduct(id, product);
+			setProducts(products.map((p) => (p.id === id ? updatedProduct : p)));
+			toast({
+				title: 'Success',
+				description: 'Product updated successfully.',
+			});
+		} catch (error) {
+			console.error('Error updating product:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to update product. Please try again.',
+			});
+		}
+	};
+
+	const handleDeleteProduct = async (id: string) => {
+		try {
+			await deleteProduct(id);
+			setProducts(products.filter((p) => p.id !== id));
+			toast({
+				title: 'Success',
+				description: 'Product deleted successfully.',
+			});
+		} catch (error) {
+			console.error('Error deleting product:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to delete product. Please try again.',
+			});
+		}
+	};
+
+	const handleAddStain = async (stain: Omit<StainType, 'id'>) => {
+		try {
+			const newStain = await createStainType(stain);
+			setStains([...stains, newStain]);
+			toast({
+				title: 'Success',
+				description: 'Stain type added successfully.',
+			});
+		} catch (error) {
+			console.error('Error adding stain type:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to add stain type. Please try again.',
+			});
+		}
+	};
+
+	const handleUpdateStain = async (
+		id: string,
+		stain: Omit<StainType, 'id'>
+	) => {
+		try {
+			const updatedStain = await updateStainType(id, stain);
+			setStains(stains.map((s) => (s.id === id ? updatedStain : s)));
+			toast({
+				title: 'Success',
+				description: 'Stain type updated successfully.',
+			});
+		} catch (error) {
+			console.error('Error updating stain type:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to update stain type. Please try again.',
+			});
+		}
+	};
+
+	const handleDeleteStain = async (id: string) => {
+		try {
+			await deleteStainType(id);
+			setStains(stains.filter((s) => s.id !== id));
+			toast({
+				title: 'Success',
+				description: 'Stain type deleted successfully.',
+			});
+		} catch (error) {
+			console.error('Error deleting stain type:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to delete stain type. Please try again.',
+			});
+		}
+	};
+
+	const handleUpdateStoreSettings = async (settings: StoreSettings) => {
+		try {
+			// Destructure and omit these fields as they should not be included in the update
+			const { id, created_at, updated_at, user_id, ...newSettings } = settings;
+			const updatedSettings = await upsertStoreSettings(newSettings);
+			setStoreSettings(updatedSettings);
+			toast({
+				title: 'Success',
+				description: 'Store settings updated successfully.',
+			});
+		} catch (error) {
+			console.error('Error updating store settings:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Failed to update store settings. Please try again.',
+			});
+		}
+	};
+
+	if (isLoading) {
+		return (
+			<AppLayout>
+				<div className="flex items-center justify-center min-h-[60vh]">
+					<Loader2 className="h-8 w-8 animate-spin text-primary" />
+				</div>
+			</AppLayout>
 		);
-	};
-
-	const handleDeleteCategory = (id: string) => {
-		setCategories(categories.filter((c) => c.id !== id));
-	};
-
-	const handleAddProduct = (product: Omit<Product, 'id'>) => {
-		const newProduct = {
-			...product,
-			id: Math.random().toString(36).substr(2, 9),
-		};
-		setProducts([...products, newProduct]);
-	};
-
-	const handleUpdateProduct = (id: string, product: Omit<Product, 'id'>) => {
-		setProducts(products.map((p) => (p.id === id ? { ...p, ...product } : p)));
-	};
-
-	const handleDeleteProduct = (id: string) => {
-		setProducts(products.filter((p) => p.id !== id));
-	};
-
-	const handleAddStain = (stain: Omit<StainType, 'id'>) => {
-		const newStain = {
-			...stain,
-			id: Math.random().toString(36).substr(2, 9),
-		};
-		setStains([...stains, newStain]);
-	};
-
-	const handleUpdateStain = (id: string, stain: Omit<StainType, 'id'>) => {
-		setStains(stains.map((s) => (s.id === id ? { ...s, ...stain } : s)));
-	};
-
-	const handleDeleteStain = (id: string) => {
-		setStains(stains.filter((s) => s.id !== id));
-	};
-
-	const handleUpdateStoreSettings = (settings: StoreSettings) => {
-		setStoreSettings(settings);
-	};
+	}
 
 	return (
 		<AppLayout>
@@ -136,7 +282,22 @@ export default function SettingsPage() {
 						</TabsList>
 						<TabsContent value="store">
 							<StoreSettingsTab
-								settings={storeSettings}
+								settings={
+									storeSettings || {
+										id: '',
+										name: '',
+										phone: '',
+										address_line1: '',
+										address_line2: '',
+										address_city: '',
+										address_postcode: '',
+										vat_number: '',
+										vat_rate: 20,
+										created_at: new Date(),
+										updated_at: new Date(),
+										user_id: '',
+									}
+								}
 								onUpdate={handleUpdateStoreSettings}
 							/>
 						</TabsContent>

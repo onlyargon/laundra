@@ -41,7 +41,12 @@ export function CategoriesTab({
 
 	const handleUpdateCategory = () => {
 		if (editingCategory && newCategory.name) {
-			onUpdate(editingCategory.id, newCategory);
+			onUpdate(editingCategory.id, {
+				...newCategory,
+				created_at: editingCategory.created_at,
+				updated_at: editingCategory.updated_at,
+				user_id: editingCategory.user_id,
+			});
 			setEditingCategory(null);
 			setNewCategory({ name: '', description: '' });
 		}
@@ -49,7 +54,12 @@ export function CategoriesTab({
 
 	const handleSaveCategory = () => {
 		if (newCategory.name) {
-			onAdd(newCategory);
+			onAdd({
+				...newCategory,
+				created_at: new Date(),
+				updated_at: new Date(),
+				user_id: '1',
+			});
 			setNewCategory({ name: '', description: '' });
 		}
 	};

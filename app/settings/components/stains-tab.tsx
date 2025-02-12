@@ -46,7 +46,12 @@ export function StainsTab({
 
 	const handleUpdateStain = () => {
 		if (editingStain && newStain.name) {
-			onUpdate(editingStain.id, newStain);
+			onUpdate(editingStain.id, {
+				...newStain,
+				created_at: editingStain.created_at,
+				updated_at: editingStain.updated_at,
+				user_id: editingStain.user_id,
+			});
 			setEditingStain(null);
 			setNewStain({ name: '', description: '', price: 0 });
 		}
@@ -54,7 +59,12 @@ export function StainsTab({
 
 	const handleSaveStain = () => {
 		if (newStain.name) {
-			onAdd(newStain);
+			onAdd({
+				...newStain,
+				created_at: new Date(),
+				updated_at: new Date(),
+				user_id: '1',
+			});
 			setNewStain({ name: '', description: '', price: 0 });
 		}
 	};

@@ -5,46 +5,49 @@ export type OrderStatus =
 	| 'completed'
 	| 'picked-up';
 
-export type OrderItem = {
+export interface Order {
 	id: string;
-	productId: string;
-	quantity: number;
-	stainTypeId?: string;
-	specialInstructions?: string;
-	basePrice: number;
-	stainCharge: number;
-};
-
-export type Order = {
-	id: string;
-	customerId: string;
-	customerName: string;
+	order_number: number;
+	customer_id: string;
 	status: OrderStatus;
-	items: OrderItem[];
-	isExpress: boolean;
-	expressFee: number;
-	totalAmount: number;
-	createdAt: Date;
-	updatedAt: Date;
-};
+	is_express: boolean;
+	express_fee: number;
+	total_amount: number;
+	created_at: Date;
+	updated_at: Date;
+	user_id: string;
+	// Joined fields
+	customer?: Customer;
+	items?: OrderItem[];
+}
 
-export type Customer = {
+export interface OrderItem {
 	id: string;
-	name: string;
-	email: string;
-	phone: string;
-	address: string;
-};
+	order_id: string;
+	product_id: string;
+	quantity: number;
+	stain_type_id: string | null;
+	special_instructions: string | null;
+	base_price: number;
+	stain_charge: number;
+	created_at: Date;
+	updated_at: Date;
+	// Joined fields
+	product?: Product;
+	stain_type?: StainType;
+}
 
-export type Product = {
-	id: string;
-	name: string;
-	category: string;
-	price: number;
-};
+export type NewOrder = Omit<
+	Order,
+	'id' | 'created_at' | 'updated_at' | 'user_id' | 'customer' | 'items'
+>;
 
-export type StainType = {
-	id: string;
-	name: string;
-	additionalCharge: number;
-};
+export type NewOrderItem = Omit<
+	OrderItem,
+	'id' | 'created_at' | 'updated_at' | 'product' | 'stain_type'
+>;
+
+// Import these from their respective modules
+import type { Customer } from '../customers/types';
+import type { Product } from '../settings/types';
+import type { StainType } from '../settings/types';

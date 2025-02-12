@@ -11,14 +11,19 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { signOut } from '@/lib/supabase';
 
 export function Navbar() {
 	const router = useRouter();
 	const pathname = usePathname();
 
-	const handleSignOut = () => {
-		// TODO: Add proper sign out logic here
-		router.push('/');
+	const handleSignOut = async () => {
+		try {
+			await signOut();
+			router.push('/');
+		} catch (error) {
+			console.error('Error signing out:', error);
+		}
 	};
 
 	const isActive = (path: string) => {
@@ -31,7 +36,13 @@ export function Navbar() {
 				<div className="flex justify-between items-center h-16">
 					<div className="flex items-center space-x-8">
 						<Link href="/dashboard">
-							<Image src="/logo.png" alt="Laundra" width={200} height={100} />
+							<Image
+								src="/logo.png"
+								className="rounded-lg"
+								alt="Laundra"
+								width={200}
+								height={100}
+							/>
 						</Link>
 						<div className="hidden md:flex items-center space-x-4">
 							<Link href="/dashboard">

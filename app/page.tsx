@@ -14,6 +14,10 @@ import {
 	FormLabel,
 	FormMessage,
 } from '@/components/ui/form';
+import { signIn, getSession } from '@/lib/supabase';
+import Image from 'next/image';
+import { useToast } from '@/hooks/use-toast';
+import { useEffect, useState } from 'react';
 
 const loginSchema = z.object({
 	email: z.string().email('Invalid email address'),
@@ -24,6 +28,26 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function Home() {
 	const router = useRouter();
+	const { toast } = useToast();
+	const [isLoading, setIsLoading] = useState(true);
+
+	useEffect(() => {
+		const checkSession = async () => {
+			try {
+				const session = await getSession();
+				if (session) {
+					router.push('/dashboard');
+				}
+			} catch (error) {
+				console.error('Session check error:', error);
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		checkSession();
+	}, [router]);
+
 	const form = useForm<LoginFormValues>({
 		resolver: zodResolver(loginSchema),
 		defaultValues: {
@@ -34,33 +58,54 @@ export default function Home() {
 
 	const onSubmit = async (data: LoginFormValues) => {
 		try {
-			// TODO: Replace with your actual authentication logic
-			if (
-				data.email === 'owner@laundra.com' &&
-				data.password === 'password123'
-			) {
-				// Successful login
-				router.push('/dashboard');
-			} else {
-				form.setError('root', {
-					message: 'Invalid email or password',
-				});
-			}
+			await signIn(data.email, data.password);
+			toast({
+				title: 'Success',
+				description: 'Successfully signed in. Redirecting...',
+			});
+			router.push('/dashboard');
 		} catch (error) {
 			console.error('Login error:', error);
-			form.setError('root', {
-				message: 'An error occurred during login',
+			toast({
+				variant: 'destructive',
+				title: 'Authentication Error',
+				description:
+					error instanceof Error ? error.message : 'Invalid email or password',
 			});
 		}
 	};
+
+	if (isLoading) {
+		return (
+			<main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100">
+				<div className="text-center">
+					<div className="animate-pulse">
+						<Image
+							src="/logo.png"
+							alt="Laundra"
+							width={200}
+							height={100}
+							className="rounded-lg opacity-50"
+						/>
+					</div>
+				</div>
+			</main>
+		);
+	}
 
 	return (
 		<main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100">
 			<div className="w-full max-w-md space-y-8 p-10 bg-white rounded-xl shadow-lg">
 				<div className="text-center">
-					<h1 className="text-3xl font-bold text-gray-900">
-						Welcome to Laundra
-					</h1>
+					<div className="flex justify-center mb-4">
+						<Image
+							src="/logo.png"
+							alt="Laundra"
+							width={200}
+							height={100}
+							className="rounded-lg"
+						/>
+					</div>
 					<p className="mt-2 text-sm text-gray-600">
 						Sign in to manage your laundry business
 					</p>
@@ -79,7 +124,11 @@ export default function Home() {
 									<FormItem>
 										<FormLabel>Email address</FormLabel>
 										<FormControl>
-											<Input placeholder="owner@laundra.com" {...field} />
+											<Input
+												placeholder="Enter your email"
+												autoComplete="email"
+												{...field}
+											/>
 										</FormControl>
 										<FormMessage />
 									</FormItem>
@@ -96,6 +145,7 @@ export default function Home() {
 											<Input
 												type="password"
 												placeholder="Enter your password"
+												autoComplete="current-password"
 												{...field}
 											/>
 										</FormControl>
@@ -103,15 +153,12 @@ export default function Home() {
 									</FormItem>
 								)}
 							/>
-
-							{form.formState.errors.root && (
-								<p className="text-sm text-red-500 mt-2">
-									{form.formState.errors.root.message}
-								</p>
-							)}
 						</div>
 
-						<Button className="w-full" disabled={form.formState.isSubmitting}>
+						<Button
+							className="w-full bg-primary hover:bg-primary/90"
+							disabled={form.formState.isSubmitting}
+						>
 							{form.formState.isSubmitting ? 'Signing in...' : 'Sign in'}
 						</Button>
 					</form>
