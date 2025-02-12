@@ -240,8 +240,19 @@ export default function SettingsPage() {
 
 	const handleUpdateStoreSettings = async (settings: StoreSettings) => {
 		try {
-			// Destructure and omit these fields as they should not be included in the update
-			const { id, created_at, updated_at, user_id, ...newSettings } = settings;
+			const newSettings: Omit<
+				StoreSettings,
+				'id' | 'created_at' | 'updated_at' | 'user_id'
+			> = {
+				name: settings.name,
+				phone: settings.phone,
+				address_line1: settings.address_line1,
+				address_line2: settings.address_line2,
+				address_city: settings.address_city,
+				address_postcode: settings.address_postcode,
+				vat_number: settings.vat_number,
+				vat_rate: settings.vat_rate,
+			};
 			const updatedSettings = await upsertStoreSettings(newSettings);
 			setStoreSettings(updatedSettings);
 			toast({
