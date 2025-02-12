@@ -111,11 +111,7 @@ export default function Home() {
 							)}
 						</div>
 
-						<Button
-							className="w-full bg-blue-600 hover:bg-blue-700"
-							type="submit"
-							disabled={form.formState.isSubmitting}
-						>
+						<Button className="w-full" disabled={form.formState.isSubmitting}>
 							{form.formState.isSubmitting ? 'Signing in...' : 'Sign in'}
 						</Button>
 					</form>

@@ -128,6 +128,7 @@ export function CreateOrder({
 		onCreateOrder({
 			customerId: customer.id,
 			customerName: customer.name,
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			items: orderItems.map(({ productName, ...item }) => item),
 			isExpress,
 			expressFee: isExpress ? EXPRESS_FEE : 0,
