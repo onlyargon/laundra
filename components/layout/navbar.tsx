@@ -27,7 +27,7 @@ export function Navbar() {
 
 	return (
 		<nav className="border-b bg-white">
-			<div className="mx-auto px-4 sm:px-6 lg:px-8">
+			<div className="max-w-6xl mx-auto">
 				<div className="flex justify-between items-center h-16">
 					<div className="flex items-center space-x-8">
 						<Link href="/dashboard">

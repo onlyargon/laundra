@@ -11,7 +11,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 		<div className="min-h-screen bg-gray-50">
 			<Navbar />
 			<main className="p-8">
-				<div className="mx-auto">{children}</div>
+				<div className="max-w-6xl mx-auto">{children}</div>
 			</main>
 		</div>
 	);
