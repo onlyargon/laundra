@@ -88,7 +88,7 @@ export async function createOrder(order: NewOrder, items: NewOrderItem[]) {
 		.insert([
 			{
 				customer_id: order.customer_id,
-				status: 'new',
+				status: 'cleaning',
 				is_express: order.is_express,
 				express_fee: order.express_fee,
 				total_amount: order.total_amount,
@@ -111,6 +111,7 @@ export async function createOrder(order: NewOrder, items: NewOrderItem[]) {
 			special_instructions: item.special_instructions,
 			base_price: item.base_price,
 			stain_charge: item.stain_charge,
+			custom_price: item.custom_price || null,
 		}))
 	);
 
@@ -161,6 +162,7 @@ export async function updateOrder(
 		.from('orders')
 		.update({
 			customer_id: order.customer_id,
+			delivery_type: order.delivery_type,
 			is_express: order.is_express,
 			express_fee: order.express_fee,
 			total_amount: order.total_amount,
@@ -187,6 +189,7 @@ export async function updateOrder(
 				special_instructions: item.special_instructions,
 				base_price: item.base_price,
 				stain_charge: item.stain_charge,
+				custom_price: item.custom_price || null,
 			}))
 		);
 
@@ -209,4 +212,37 @@ export async function updateOrderStatus(id: string, status: Order['status']) {
 export async function deleteOrder(id: string) {
 	const { error } = await supabase.from('orders').delete().eq('id', id);
 	if (error) throw error;
+}
+
+export async function getOrdersByCustomerId(customerId: string) {
+	// Get orders for the customer
+	const { data: orders, error: ordersError } = await supabase
+		.from('orders')
+		.select('*, customer:customers(*)')
+		.eq('customer_id', customerId)
+		.order('created_at', { ascending: false });
+
+	if (ordersError) throw ordersError;
+
+	// Get order items for these orders
+	const orderIds = orders?.map((order) => order.id) || [];
+	const { data: items, error: itemsError } = await supabase
+		.from('order_items')
+		.select('*, product:products(*), stain_type:stain_types(*)')
+		.in('order_id', orderIds);
+
+	if (itemsError) throw itemsError;
+
+	// Combine the data
+	return (orders || []).map((order) => ({
+		...parseDates(order),
+		customer: order.customer ? parseDates(order.customer) : undefined,
+		items: items
+			?.filter((item) => item.order_id === order.id)
+			.map((item: RawOrderItem) => ({
+				...parseDates(item),
+				product: item.product,
+				stain_type: item.stain_type,
+			})),
+	})) as Order[];
 }

@@ -10,7 +10,13 @@ import { CreateOrder } from './components/create-order';
 import { OrderDetails } from './components/order-details';
 import { EditOrder } from './components/edit-order';
 import { OrderList } from './components/order-list';
-import { Order, OrderStatus, NewOrder, NewOrderItem } from './types';
+import {
+	Order,
+	OrderStatus,
+	NewOrder,
+	NewOrderItem,
+	DeliveryType,
+} from './types';
 import { useToast } from '@/hooks/use-toast';
 import {
 	getOrders,
@@ -20,17 +26,16 @@ import {
 	deleteOrder,
 } from './services';
 import { getCustomers } from '../customers/services';
-import { getProducts, getStainTypes } from '../settings/services';
+import {
+	getProducts,
+	getStainTypes,
+	getCategories,
+} from '../settings/services';
 import type { Customer } from '../customers/types';
-import type { Product, StainType } from '../settings/types';
+import type { Product, StainType, Category } from '../settings/types';
 
-const statusOrder: OrderStatus[] = [
-	'new',
-	'cleaning',
-	'ready',
-	'completed',
-	'picked-up',
-];
+const statusOrder: OrderStatus[] = ['cleaning', 'ready', 'completed'];
+type TabValue = OrderStatus | 'all';
 
 export default function Orders() {
 	const { toast } = useToast();
@@ -39,9 +44,10 @@ export default function Orders() {
 	const [customers, setCustomers] = useState<Customer[]>([]);
 	const [products, setProducts] = useState<Product[]>([]);
 	const [stainTypes, setStainTypes] = useState<StainType[]>([]);
+	const [categories, setCategories] = useState<Category[]>([]);
 
 	// UI state
-	const [selectedStatus, setSelectedStatus] = useState<OrderStatus>('new');
+	const [selectedStatus, setSelectedStatus] = useState<TabValue>('cleaning');
 	const [searchQuery, setSearchQuery] = useState('');
 	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 	const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -52,24 +58,31 @@ export default function Orders() {
 	useEffect(() => {
 		const loadData = async () => {
 			try {
-				const [ordersData, customersData, productsData, stainTypesData] =
-					await Promise.all([
-						getOrders(),
-						getCustomers(),
-						getProducts(),
-						getStainTypes(),
-					]);
+				const [
+					ordersData,
+					customersData,
+					productsData,
+					stainTypesData,
+					categoriesData,
+				] = await Promise.all([
+					getOrders(),
+					getCustomers(),
+					getProducts(),
+					getStainTypes(),
+					getCategories(),
+				]);
 
 				setOrders(ordersData);
 				setCustomers(customersData);
 				setProducts(productsData);
 				setStainTypes(stainTypesData);
+				setCategories(categoriesData);
 			} catch (error) {
 				console.error('Error loading data:', error);
 				toast({
 					variant: 'destructive',
 					title: 'Error',
-					description: 'Failed to load orders data. Please try again.',
+					description: 'Failed to load data. Please try again.',
 				});
 			} finally {
 				setIsLoading(false);
@@ -82,7 +95,7 @@ export default function Orders() {
 	// Filter orders based on status and search query
 	const filteredOrders = orders.filter(
 		(order) =>
-			order.status === selectedStatus &&
+			(selectedStatus === 'all' || order.status === selectedStatus) &&
 			(order.customer?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 				order.id.includes(searchQuery))
 	);
@@ -149,6 +162,7 @@ export default function Orders() {
 	const handleCreateOrder = async (orderData: {
 		customer_id: string;
 		items: NewOrderItem[];
+		delivery_type: DeliveryType;
 		is_express: boolean;
 		express_fee: number;
 		total_amount: number;
@@ -156,7 +170,7 @@ export default function Orders() {
 		try {
 			const newOrder: NewOrder = {
 				...orderData,
-				status: 'new',
+				status: 'cleaning',
 				order_number: generateOrderNumber(),
 			};
 
@@ -189,6 +203,7 @@ export default function Orders() {
 		data: {
 			customer_id: string;
 			items: NewOrderItem[];
+			delivery_type: DeliveryType;
 			is_express: boolean;
 			express_fee: number;
 			total_amount: number;
@@ -273,14 +288,13 @@ export default function Orders() {
 
 				<Tabs
 					value={selectedStatus}
-					onValueChange={(value) => setSelectedStatus(value as OrderStatus)}
+					onValueChange={(value) => setSelectedStatus(value as TabValue)}
 				>
 					<TabsList>
-						<TabsTrigger value="new">New</TabsTrigger>
+						<TabsTrigger value="all">All</TabsTrigger>
 						<TabsTrigger value="cleaning">Cleaning</TabsTrigger>
 						<TabsTrigger value="ready">Ready</TabsTrigger>
 						<TabsTrigger value="completed">Completed</TabsTrigger>
-						<TabsTrigger value="picked-up">Picked Up</TabsTrigger>
 					</TabsList>
 
 					<TabsContent value={selectedStatus}>
@@ -304,6 +318,7 @@ export default function Orders() {
 				customers={customers}
 				products={products}
 				stainTypes={stainTypes}
+				categories={categories}
 			/>
 
 			<OrderDetails
@@ -319,6 +334,7 @@ export default function Orders() {
 				}}
 				onDelete={handleDeleteOrder}
 				onEdit={handleEditOrder}
+				onStatusChange={handleStatusChange}
 			/>
 
 			{selectedOrder && (

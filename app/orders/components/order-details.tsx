@@ -18,7 +18,7 @@ import {
 	TableRow,
 } from '@/components/ui/table';
 import { Printer, Trash, Edit } from 'lucide-react';
-import { Order } from '../types';
+import { Order, OrderStatus } from '../types';
 import type { Product, StainType, StoreSettings } from '@/app/settings/types';
 import { useState, useEffect } from 'react';
 import { getStoreSettings } from '@/app/settings/services';
@@ -33,6 +33,13 @@ import {
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
 
 export interface OrderDetailsProps {
 	order: Order | null;
@@ -42,6 +49,7 @@ export interface OrderDetailsProps {
 	onClose: () => void;
 	onDelete: (orderId: string) => void;
 	onEdit: (order: Order) => void;
+	onStatusChange: (orderId: string, status: OrderStatus) => void;
 }
 
 export function OrderDetails({
@@ -52,6 +60,7 @@ export function OrderDetails({
 	onClose,
 	onDelete,
 	onEdit,
+	onStatusChange,
 }: OrderDetailsProps) {
 	const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(
 		null
@@ -99,7 +108,9 @@ export function OrderDetails({
 		const subtotal =
 			order.items?.reduce(
 				(sum, item) =>
-					sum + (item.base_price + item.stain_charge) * item.quantity,
+					sum +
+					((item.custom_price || item.base_price) + item.stain_charge) *
+						item.quantity,
 				0
 			) || 0;
 		const vat = (subtotal * storeSettings.vat_rate) / 100;
@@ -162,6 +173,12 @@ export function OrderDetails({
 							font-family: 'Courier New', monospace;
 							font-weight: bold;
 						}
+						.note {
+							font-style: italic;
+							color: #666;
+							font-size: 11px;
+							margin-left: 10px;
+						}
 					</style>
 				</head>
 				<body>
@@ -182,6 +199,7 @@ export function OrderDetails({
 							order.items?.reduce((sum, item) => sum + item.quantity, 0) || 0
 						} pieces</p>
 						<p>Customer: ${order.customer?.name}</p>
+						<p>Delivery: ${order.delivery_type}</p>
 						
 						<div class="divider"></div>
 						
@@ -196,12 +214,25 @@ export function OrderDetails({
 										: null;
 									return `
 							<div class="item-row">
-								<span>${item.quantity}x ${product?.name}${
-										stain ? ` (${stain.name})` : ''
-									}</span>
-								<span>£${((item.base_price + item.stain_charge) * item.quantity).toFixed(
-									2
-								)}</span>
+								<span>
+									${item.quantity}x ${product?.name}${stain ? ` (${stain.name})` : ''}
+									${
+										item.custom_price
+											? `<span class="note">[Custom Price: £${item.custom_price.toFixed(
+													2
+											  )}]</span>`
+											: ''
+									}
+									${
+										item.special_instructions
+											? `<br><span class="note">Note: ${item.special_instructions}</span>`
+											: ''
+									}
+								</span>
+								<span>£${(
+									((item.custom_price || item.base_price) + item.stain_charge) *
+									item.quantity
+								).toFixed(2)}</span>
 							</div>
 						`;
 								})
@@ -229,7 +260,7 @@ export function OrderDetails({
 							<span>£${vat.toFixed(2)}</span>
 						</div>
 						<div class="total-row">
-							<span>Total:</span>
+							<span>Total (inc. VAT):</span>
 							<span>£${total.toFixed(2)}</span>
 						</div>
 						
@@ -277,6 +308,21 @@ export function OrderDetails({
 						<div className="flex items-center justify-between">
 							<DialogTitle>Order Receipt #{order.order_number}</DialogTitle>
 							<div className="flex gap-2">
+								<Select
+									value={order.status}
+									onValueChange={(value: OrderStatus) =>
+										onStatusChange(order.id, value)
+									}
+								>
+									<SelectTrigger className="w-[140px]">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="cleaning">Cleaning</SelectItem>
+										<SelectItem value="ready">Ready</SelectItem>
+										<SelectItem value="completed">Completed</SelectItem>
+									</SelectContent>
+								</Select>
 								<Button
 									variant="outline"
 									size="icon"
@@ -328,6 +374,10 @@ export function OrderDetails({
 										{order.customer.address}
 									</div>
 								)}
+								<div>
+									<span className="font-medium">Delivery Type:</span>{' '}
+									{order.delivery_type}
+								</div>
 							</div>
 						</div>
 
@@ -337,9 +387,7 @@ export function OrderDetails({
 							<div className="flex items-center space-x-2">
 								<span
 									className={`px-2 py-1 rounded-full text-xs font-medium ${
-										order.status === 'new'
-											? 'bg-blue-100 text-blue-800'
-											: order.status === 'cleaning'
+										order.status === 'cleaning'
 											? 'bg-yellow-100 text-yellow-800'
 											: order.status === 'ready'
 											? 'bg-green-100 text-green-800'
@@ -364,8 +412,9 @@ export function OrderDetails({
 									<TableRow>
 										<TableHead>Item</TableHead>
 										<TableHead>Quantity</TableHead>
-										<TableHead>Base Price</TableHead>
+										<TableHead>Price</TableHead>
 										<TableHead>Stain Treatment</TableHead>
+										<TableHead>Notes</TableHead>
 										<TableHead>Total</TableHead>
 									</TableRow>
 								</TableHeader>
@@ -382,7 +431,14 @@ export function OrderDetails({
 											<TableRow key={item.id}>
 												<TableCell>{product?.name}</TableCell>
 												<TableCell>{item.quantity}</TableCell>
-												<TableCell>£{item.base_price.toFixed(2)}</TableCell>
+												<TableCell>
+													£{(item.custom_price || item.base_price).toFixed(2)}
+													{item.custom_price && (
+														<span className="text-gray-400 text-xs ml-1">
+															(Custom)
+														</span>
+													)}
+												</TableCell>
 												<TableCell>
 													{stain
 														? `${stain.name} (+£${item.stain_charge.toFixed(
@@ -391,9 +447,13 @@ export function OrderDetails({
 														: 'None'}
 												</TableCell>
 												<TableCell>
+													{item.special_instructions || '-'}
+												</TableCell>
+												<TableCell>
 													£
 													{(
-														(item.base_price + item.stain_charge) *
+														((item.custom_price || item.base_price) +
+															item.stain_charge) *
 														item.quantity
 													).toFixed(2)}
 												</TableCell>
@@ -416,7 +476,9 @@ export function OrderDetails({
 											?.reduce(
 												(sum, item) =>
 													sum +
-													(item.base_price + item.stain_charge) * item.quantity,
+													((item.custom_price || item.base_price) +
+														item.stain_charge) *
+														item.quantity,
 												0
 											)
 											.toFixed(2) || '0.00'}

@@ -20,8 +20,8 @@ import {
 import { Plus, X, Search } from 'lucide-react';
 import { useState } from 'react';
 import type { Customer } from '@/app/customers/types';
-import type { Product, StainType } from '@/app/settings/types';
-import type { NewOrderItem } from '../types';
+import type { Product, StainType, Category } from '@/app/settings/types';
+import type { NewOrderItem, DeliveryType } from '../types';
 import { createCustomer } from '@/app/customers/services';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +32,7 @@ interface CreateOrderProps {
 	onCreateOrder: (data: {
 		customer_id: string;
 		items: NewOrderItem[];
+		delivery_type: DeliveryType;
 		is_express: boolean;
 		express_fee: number;
 		total_amount: number;
@@ -40,6 +41,7 @@ interface CreateOrderProps {
 	customers: Customer[];
 	products: Product[];
 	stainTypes: StainType[];
+	categories: Category[];
 }
 
 export function CreateOrder({
@@ -50,6 +52,7 @@ export function CreateOrder({
 	customers,
 	products,
 	stainTypes,
+	categories,
 }: CreateOrderProps) {
 	const EXPRESS_FEE = 15.0;
 	const { toast } = useToast();
@@ -57,9 +60,10 @@ export function CreateOrder({
 	// Form state
 	const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
 	const [orderItems, setOrderItems] = useState<
-		(NewOrderItem & { productName: string })[]
+		(NewOrderItem & { productName: string; customPrice: number | null })[]
 	>([]);
 	const [isExpress, setIsExpress] = useState(false);
+	const [deliveryType, setDeliveryType] = useState<DeliveryType>('In-store');
 
 	// Customer search and registration state
 	const [phoneSearch, setPhoneSearch] = useState('');
@@ -119,17 +123,22 @@ export function CreateOrder({
 
 	// Calculate total amount
 	const calculateTotalAmount = () => {
-		const itemsTotal = orderItems.reduce(
-			(sum, item) =>
-				sum + (item.base_price + item.stain_charge) * item.quantity,
-			0
-		);
-		return itemsTotal + (isExpress ? EXPRESS_FEE : 0);
+		const itemsTotal = orderItems.reduce((sum, item) => {
+			const itemPrice =
+				item.customPrice !== null ? item.customPrice : item.base_price;
+			return sum + (itemPrice + item.stain_charge) * item.quantity;
+		}, 0);
+		const subtotal = itemsTotal + (isExpress ? EXPRESS_FEE : 0);
+		const vat = subtotal * 0.2; // 20% VAT
+		return subtotal + vat;
 	};
 
 	// Handle adding new item to order
 	const handleAddItem = () => {
-		const newItem: NewOrderItem & { productName: string } = {
+		const newItem: NewOrderItem & {
+			productName: string;
+			customPrice: number | null;
+		} = {
 			order_id: '', // This will be set by the server
 			product_id: '',
 			productName: '',
@@ -137,7 +146,9 @@ export function CreateOrder({
 			stain_type_id: null,
 			special_instructions: null,
 			base_price: 0,
+			custom_price: 0,
 			stain_charge: 0,
+			customPrice: null,
 		};
 		setOrderItems([...orderItems, newItem]);
 	};
@@ -145,7 +156,9 @@ export function CreateOrder({
 	// Handle updating item
 	const handleUpdateItem = (
 		index: number,
-		updates: Partial<NewOrderItem & { productName: string }>
+		updates: Partial<
+			NewOrderItem & { productName: string; customPrice: number | null }
+		>
 	) => {
 		const newItems = [...orderItems];
 		newItems[index] = { ...newItems[index], ...updates };
@@ -182,6 +195,7 @@ export function CreateOrder({
 				customer_id: selectedCustomerId,
 				// eslint-disable-next-line @typescript-eslint/no-unused-vars
 				items: orderItems.map(({ productName, ...item }) => item),
+				delivery_type: deliveryType,
 				is_express: isExpress,
 				express_fee: isExpress ? EXPRESS_FEE : 0,
 				total_amount: calculateTotalAmount(),
@@ -191,6 +205,7 @@ export function CreateOrder({
 			setSelectedCustomerId('');
 			setOrderItems([]);
 			setIsExpress(false);
+			setDeliveryType('In-store');
 			setPhoneSearch('');
 			setShowNewCustomerForm(false);
 			setNewCustomer({
@@ -384,6 +399,27 @@ export function CreateOrder({
 						)}
 					</div>
 
+					{/* Delivery Type */}
+					<div className="space-y-4">
+						<h3 className="text-lg font-semibold">Delivery Options</h3>
+						<Select
+							value={deliveryType}
+							onValueChange={(value: DeliveryType) => setDeliveryType(value)}
+						>
+							<SelectTrigger>
+								<SelectValue placeholder="Select delivery type" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="In-store">In-store</SelectItem>
+								<SelectItem value="Pickup and Delivery">
+									Pickup and Delivery
+								</SelectItem>
+								<SelectItem value="Pick up">Pick up</SelectItem>
+								<SelectItem value="Delivery">Delivery</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+
 					{/* Order Items */}
 					<div className="space-y-4">
 						<div className="flex justify-between items-center">
@@ -395,8 +431,8 @@ export function CreateOrder({
 						</div>
 
 						{orderItems.map((item, index) => (
-							<div key={index} className="grid grid-cols-6 gap-4 items-start">
-								<div className="col-span-2">
+							<div key={index} className="grid grid-cols-12 gap-4 items-start">
+								<div className="col-span-3 space-y-1">
 									<Select
 										value={item.product_id}
 										onValueChange={(value) =>
@@ -414,9 +450,22 @@ export function CreateOrder({
 											))}
 										</SelectContent>
 									</Select>
+									{item.product_id && (
+										<p className="text-xs text-gray-500 pl-2">
+											Category:{' '}
+											{
+												categories.find(
+													(c) =>
+														c.id ===
+														products.find((p) => p.id === item.product_id)
+															?.category_id
+												)?.name
+											}
+										</p>
+									)}
 								</div>
 
-								<div>
+								<div className="col-span-1">
 									<Input
 										type="number"
 										min="1"
@@ -452,14 +501,49 @@ export function CreateOrder({
 									</Select>
 								</div>
 
-								<Button
-									variant="ghost"
-									size="icon"
-									className="text-red-500"
-									onClick={() => handleRemoveItem(index)}
-								>
-									<X className="h-4 w-4" />
-								</Button>
+								<div className="col-span-3">
+									<Input
+										placeholder="Add note..."
+										value={item.special_instructions || ''}
+										onChange={(e) =>
+											handleUpdateItem(index, {
+												special_instructions: e.target.value,
+											})
+										}
+									/>
+								</div>
+
+								<div className="col-span-2">
+									<Input
+										type="number"
+										min="0"
+										step="0.01"
+										placeholder="Custom price..."
+										value={
+											item.customPrice !== null
+												? item.customPrice
+												: item.base_price
+										}
+										onChange={(e) =>
+											handleUpdateItem(index, {
+												customPrice: e.target.value
+													? parseFloat(e.target.value)
+													: null,
+											})
+										}
+									/>
+								</div>
+
+								<div className="col-span-1">
+									<Button
+										variant="ghost"
+										size="icon"
+										className="text-red-500"
+										onClick={() => handleRemoveItem(index)}
+									>
+										<X className="h-4 w-4" />
+									</Button>
+								</div>
 							</div>
 						))}
 					</div>
@@ -491,11 +575,19 @@ export function CreateOrder({
 												stainTypes.find((s) => s.id === item.stain_type_id)
 													?.name
 											} treatment)`}
+										{item.special_instructions && (
+											<span className="text-gray-400 ml-2">
+												Note: {item.special_instructions}
+											</span>
+										)}
 									</span>
 									<span>
 										£
 										{(
-											(item.base_price + item.stain_charge) *
+											((item.customPrice !== null
+												? item.customPrice
+												: item.base_price) +
+												item.stain_charge) *
 											item.quantity
 										).toFixed(2)}
 									</span>
@@ -507,8 +599,44 @@ export function CreateOrder({
 									<span>£{EXPRESS_FEE.toFixed(2)}</span>
 								</div>
 							)}
+							<div className="flex justify-between text-gray-600 pt-2 border-t">
+								<span>Subtotal</span>
+								<span>
+									£
+									{(
+										orderItems.reduce((sum, item) => {
+											const itemPrice =
+												item.customPrice !== null
+													? item.customPrice
+													: item.base_price;
+											return (
+												sum + (itemPrice + item.stain_charge) * item.quantity
+											);
+										}, 0) + (isExpress ? EXPRESS_FEE : 0)
+									).toFixed(2)}
+								</span>
+							</div>
+							<div className="flex justify-between text-gray-600">
+								<span>VAT (20%)</span>
+								<span>
+									£
+									{(
+										(orderItems.reduce((sum, item) => {
+											const itemPrice =
+												item.customPrice !== null
+													? item.customPrice
+													: item.base_price;
+											return (
+												sum + (itemPrice + item.stain_charge) * item.quantity
+											);
+										}, 0) +
+											(isExpress ? EXPRESS_FEE : 0)) *
+										0.2
+									).toFixed(2)}
+								</span>
+							</div>
 							<div className="flex justify-between font-semibold pt-2 border-t">
-								<span>Total</span>
+								<span>Total (inc. VAT)</span>
 								<span>£{calculateTotalAmount().toFixed(2)}</span>
 							</div>
 						</div>

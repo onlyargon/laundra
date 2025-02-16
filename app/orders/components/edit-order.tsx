@@ -21,7 +21,12 @@ import { Plus, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { Customer } from '@/app/customers/types';
 import type { Product, StainType } from '@/app/settings/types';
-import type { Order, NewOrderItem } from '../types';
+import type { Order, NewOrderItem, DeliveryType } from '../types';
+
+// Add custom type for order items with additional fields
+type ExtendedOrderItem = NewOrderItem & {
+	productName: string;
+};
 
 interface EditOrderProps {
 	order: Order;
@@ -32,6 +37,7 @@ interface EditOrderProps {
 		data: {
 			customer_id: string;
 			items: NewOrderItem[];
+			delivery_type: DeliveryType;
 			is_express: boolean;
 			express_fee: number;
 			total_amount: number;
@@ -57,10 +63,11 @@ export function EditOrder({
 	const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
 		order.customer_id
 	);
-	const [orderItems, setOrderItems] = useState<
-		(NewOrderItem & { productName: string })[]
-	>([]);
+	const [orderItems, setOrderItems] = useState<ExtendedOrderItem[]>([]);
 	const [isExpress, setIsExpress] = useState(order.is_express);
+	const [deliveryType, setDeliveryType] = useState<DeliveryType>(
+		order.delivery_type
+	);
 
 	// Initialize form with existing order data
 	useEffect(() => {
@@ -75,6 +82,7 @@ export function EditOrder({
 					special_instructions: item.special_instructions,
 					base_price: item.base_price,
 					stain_charge: item.stain_charge,
+					custom_price: item.custom_price,
 				}))
 			);
 		}
@@ -84,15 +92,19 @@ export function EditOrder({
 	const calculateTotalAmount = () => {
 		const itemsTotal = orderItems.reduce(
 			(sum, item) =>
-				sum + (item.base_price + item.stain_charge) * item.quantity,
+				sum +
+				((item.custom_price || item.base_price) + item.stain_charge) *
+					item.quantity,
 			0
 		);
-		return itemsTotal + (isExpress ? EXPRESS_FEE : 0);
+		const subtotal = itemsTotal + (isExpress ? EXPRESS_FEE : 0);
+		const vat = subtotal * 0.2; // 20% VAT
+		return subtotal + vat;
 	};
 
 	// Handle adding new item to order
 	const handleAddItem = () => {
-		const newItem: NewOrderItem & { productName: string } = {
+		const newItem: ExtendedOrderItem = {
 			order_id: order.id,
 			product_id: '',
 			productName: '',
@@ -100,6 +112,7 @@ export function EditOrder({
 			stain_type_id: null,
 			special_instructions: null,
 			base_price: 0,
+			custom_price: null,
 			stain_charge: 0,
 		};
 		setOrderItems([...orderItems, newItem]);
@@ -108,7 +121,7 @@ export function EditOrder({
 	// Handle updating item
 	const handleUpdateItem = (
 		index: number,
-		updates: Partial<NewOrderItem & { productName: string }>
+		updates: Partial<ExtendedOrderItem>
 	) => {
 		const newItems = [...orderItems];
 		newItems[index] = { ...newItems[index], ...updates };
@@ -119,6 +132,8 @@ export function EditOrder({
 			if (product) {
 				newItems[index].base_price = product.price;
 				newItems[index].productName = product.name;
+				// Reset custom price when product changes
+				newItems[index].custom_price = null;
 			}
 		}
 
@@ -145,6 +160,7 @@ export function EditOrder({
 				customer_id: selectedCustomerId,
 				// eslint-disable-next-line @typescript-eslint/no-unused-vars
 				items: orderItems.map(({ productName, ...item }) => item),
+				delivery_type: deliveryType,
 				is_express: isExpress,
 				express_fee: isExpress ? EXPRESS_FEE : 0,
 				total_amount: calculateTotalAmount(),
@@ -192,8 +208,8 @@ export function EditOrder({
 						</div>
 
 						{orderItems.map((item, index) => (
-							<div key={index} className="grid grid-cols-6 gap-4 items-start">
-								<div className="col-span-2">
+							<div key={index} className="grid grid-cols-12 gap-4 items-start">
+								<div className="col-span-3">
 									<Select
 										value={item.product_id}
 										onValueChange={(value) =>
@@ -213,7 +229,7 @@ export function EditOrder({
 									</Select>
 								</div>
 
-								<div>
+								<div className="col-span-1">
 									<Input
 										type="number"
 										min="1"
@@ -226,7 +242,7 @@ export function EditOrder({
 									/>
 								</div>
 
-								<div className="col-span-2">
+								<div className="col-span-3">
 									<Select
 										value={item.stain_type_id || 'none'}
 										onValueChange={(value) =>
@@ -249,16 +265,72 @@ export function EditOrder({
 									</Select>
 								</div>
 
-								<Button
-									variant="ghost"
-									size="icon"
-									className="text-red-500"
-									onClick={() => handleRemoveItem(index)}
-								>
-									<X className="h-4 w-4" />
-								</Button>
+								<div className="col-span-3">
+									<Input
+										placeholder="Add note..."
+										value={item.special_instructions || ''}
+										onChange={(e) =>
+											handleUpdateItem(index, {
+												special_instructions: e.target.value,
+											})
+										}
+									/>
+								</div>
+
+								<div className="col-span-1">
+									<Input
+										type="number"
+										min="0"
+										step="0.01"
+										placeholder="Custom price..."
+										value={
+											item.custom_price !== null
+												? item.custom_price
+												: item.base_price
+										}
+										onChange={(e) =>
+											handleUpdateItem(index, {
+												custom_price: e.target.value
+													? parseFloat(e.target.value)
+													: null,
+											})
+										}
+									/>
+								</div>
+
+								<div className="col-span-1">
+									<Button
+										variant="ghost"
+										size="icon"
+										className="text-red-500"
+										onClick={() => handleRemoveItem(index)}
+									>
+										<X className="h-4 w-4" />
+									</Button>
+								</div>
 							</div>
 						))}
+					</div>
+
+					{/* Delivery Type */}
+					<div className="space-y-4">
+						<h3 className="text-lg font-semibold">Delivery Options</h3>
+						<Select
+							value={deliveryType}
+							onValueChange={(value: DeliveryType) => setDeliveryType(value)}
+						>
+							<SelectTrigger>
+								<SelectValue placeholder="Select delivery type" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="In-store">In-store</SelectItem>
+								<SelectItem value="Pickup and Delivery">
+									Pickup and Delivery
+								</SelectItem>
+								<SelectItem value="Pick up">Pick up</SelectItem>
+								<SelectItem value="Delivery">Delivery</SelectItem>
+							</SelectContent>
+						</Select>
 					</div>
 
 					{/* Express Service */}
@@ -288,11 +360,20 @@ export function EditOrder({
 												stainTypes.find((s) => s.id === item.stain_type_id)
 													?.name
 											} treatment)`}
+										{item.special_instructions && (
+											<span className="text-gray-400 ml-2">
+												Note: {item.special_instructions}
+											</span>
+										)}
+										{item.custom_price && (
+											<span className="text-gray-400 ml-2">(Custom Price)</span>
+										)}
 									</span>
 									<span>
 										£
 										{(
-											(item.base_price + item.stain_charge) *
+											((item.custom_price || item.base_price) +
+												item.stain_charge) *
 											item.quantity
 										).toFixed(2)}
 									</span>
@@ -304,8 +385,38 @@ export function EditOrder({
 									<span>£{EXPRESS_FEE.toFixed(2)}</span>
 								</div>
 							)}
+							<div className="flex justify-between text-gray-600 pt-2 border-t">
+								<span>Subtotal</span>
+								<span>
+									£
+									{(
+										orderItems.reduce((sum, item) => {
+											const itemPrice = item.custom_price || item.base_price;
+											return (
+												sum + (itemPrice + item.stain_charge) * item.quantity
+											);
+										}, 0) + (isExpress ? EXPRESS_FEE : 0)
+									).toFixed(2)}
+								</span>
+							</div>
+							<div className="flex justify-between text-gray-600">
+								<span>VAT (20%)</span>
+								<span>
+									£
+									{(
+										(orderItems.reduce((sum, item) => {
+											const itemPrice = item.custom_price || item.base_price;
+											return (
+												sum + (itemPrice + item.stain_charge) * item.quantity
+											);
+										}, 0) +
+											(isExpress ? EXPRESS_FEE : 0)) *
+										0.2
+									).toFixed(2)}
+								</span>
+							</div>
 							<div className="flex justify-between font-semibold pt-2 border-t">
-								<span>Total</span>
+								<span>Total (inc. VAT)</span>
 								<span>£{calculateTotalAmount().toFixed(2)}</span>
 							</div>
 						</div>
