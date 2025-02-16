@@ -96,8 +96,12 @@ export default function Orders() {
 	const filteredOrders = orders.filter(
 		(order) =>
 			(selectedStatus === 'all' || order.status === selectedStatus) &&
-			(order.customer?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				order.id.includes(searchQuery))
+			(searchQuery === '' || // If search is empty, show all
+				order.customer?.name
+					.toLowerCase()
+					.includes(searchQuery.toLowerCase()) ||
+				order.customer?.phone.includes(searchQuery) || // Search by phone
+				order.order_number.toString().includes(searchQuery)) // Search by order number
 	);
 
 	// Status management
@@ -273,7 +277,7 @@ export default function Orders() {
 						<div className="relative w-96">
 							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
 							<Input
-								placeholder="Search orders..."
+								placeholder="Search by customer name, phone or order number..."
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
 								className="pl-10"
