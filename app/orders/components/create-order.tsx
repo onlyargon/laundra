@@ -1,14 +1,6 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
 	Select,
@@ -25,9 +17,9 @@ import type { NewOrderItem, DeliveryType } from '../types';
 import { createCustomer } from '@/app/customers/services';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface CreateOrderProps {
-	isOpen: boolean;
 	onClose: () => void;
 	onCreateOrder: (data: {
 		customer_id: string;
@@ -45,7 +37,6 @@ interface CreateOrderProps {
 }
 
 export function CreateOrder({
-	isOpen,
 	onClose,
 	onCreateOrder,
 	onCustomerCreated,
@@ -218,15 +209,11 @@ export function CreateOrder({
 	};
 
 	return (
-		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="max-w-4xl">
-				<DialogHeader>
-					<DialogTitle>Create New Order</DialogTitle>
-					<DialogDescription>
-						Search for a customer by phone number or register a new one.
-					</DialogDescription>
-				</DialogHeader>
-
+		<Card>
+			<CardHeader>
+				<CardTitle>Create New Order</CardTitle>
+			</CardHeader>
+			<CardContent>
 				<div className="space-y-6">
 					{/* Customer Search and Selection */}
 					<div className="space-y-4">
@@ -643,7 +630,7 @@ export function CreateOrder({
 					</div>
 				</div>
 
-				<DialogFooter>
+				<div className="flex justify-end space-x-2 mt-6">
 					<Button variant="ghost" onClick={onClose}>
 						Cancel
 					</Button>
@@ -653,8 +640,8 @@ export function CreateOrder({
 					>
 						Create Order
 					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+				</div>
+			</CardContent>
+		</Card>
 	);
 }

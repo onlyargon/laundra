@@ -1,14 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
 	Select,
@@ -30,7 +23,6 @@ type ExtendedOrderItem = NewOrderItem & {
 
 interface EditOrderProps {
 	order: Order;
-	isOpen: boolean;
 	onClose: () => void;
 	onSave: (
 		orderId: string,
@@ -50,7 +42,6 @@ interface EditOrderProps {
 
 export function EditOrder({
 	order,
-	isOpen,
 	onClose,
 	onSave,
 	customers,
@@ -165,18 +156,15 @@ export function EditOrder({
 				express_fee: isExpress ? EXPRESS_FEE : 0,
 				total_amount: calculateTotalAmount(),
 			});
-			onClose();
 		}
 	};
 
 	return (
-		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="max-w-4xl">
-				<DialogHeader>
-					<DialogTitle>Edit Order #{order.order_number}</DialogTitle>
-					<DialogDescription>Modify the order details below.</DialogDescription>
-				</DialogHeader>
-
+		<Card>
+			<CardHeader>
+				<CardTitle>Edit Order #{order.order_number}</CardTitle>
+			</CardHeader>
+			<CardContent>
 				<div className="space-y-6">
 					{/* Customer Selection */}
 					<div>
@@ -423,7 +411,7 @@ export function EditOrder({
 					</div>
 				</div>
 
-				<DialogFooter>
+				<div className="flex justify-end space-x-2 mt-6">
 					<Button variant="ghost" onClick={onClose}>
 						Cancel
 					</Button>
@@ -433,8 +421,8 @@ export function EditOrder({
 					>
 						Save Changes
 					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+				</div>
+			</CardContent>
+		</Card>
 	);
 }
