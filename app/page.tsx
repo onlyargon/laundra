@@ -14,7 +14,7 @@ import {
 	FormLabel,
 	FormMessage,
 } from '@/components/ui/form';
-import { signIn, getSession } from '@/lib/supabase';
+import { signIn, getSession, supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState } from 'react';
@@ -66,11 +66,28 @@ export default function Home() {
 			router.push('/dashboard');
 		} catch (error) {
 			console.error('Login error:', error);
+
+			// Provide more specific error messages
+			let errorMessage = 'Invalid email or password';
+
+			if (error instanceof Error) {
+				if (error.message.includes('Invalid login credentials')) {
+					errorMessage =
+						'The email or password you entered is incorrect. Please try again.';
+				} else if (error.message.includes('Email not confirmed')) {
+					errorMessage =
+						'Your email has not been confirmed. Please check your inbox.';
+				} else if (error.message.includes('rate limit')) {
+					errorMessage = 'Too many login attempts. Please try again later.';
+				} else {
+					errorMessage = error.message;
+				}
+			}
+
 			toast({
 				variant: 'destructive',
 				title: 'Authentication Error',
-				description:
-					error instanceof Error ? error.message : 'Invalid email or password',
+				description: errorMessage,
 			});
 		}
 	};
@@ -161,6 +178,53 @@ export default function Home() {
 						>
 							{form.formState.isSubmitting ? 'Signing in...' : 'Sign in'}
 						</Button>
+
+						<div className="text-center mt-4">
+							<a
+								href="#"
+								className="text-sm text-blue-600 hover:text-blue-800"
+								onClick={async (e) => {
+									e.preventDefault();
+									const email = form.getValues('email');
+									if (!email) {
+										toast({
+											variant: 'destructive',
+											title: 'Email Required',
+											description: 'Please enter your email address first',
+										});
+										return;
+									}
+
+									try {
+										const { error } = await supabase.auth.resetPasswordForEmail(
+											email,
+											{
+												redirectTo: `${window.location.origin}/reset-password`,
+											}
+										);
+
+										if (error) throw error;
+
+										toast({
+											title: 'Password Reset Email Sent',
+											description: 'Check your email for a password reset link',
+										});
+									} catch (error) {
+										console.error('Password reset error:', error);
+										toast({
+											variant: 'destructive',
+											title: 'Reset Failed',
+											description:
+												error instanceof Error
+													? error.message
+													: 'Failed to send reset email',
+										});
+									}
+								}}
+							>
+								Forgot your password?
+							</a>
+						</div>
 					</form>
 				</Form>
 			</div>
